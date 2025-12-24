@@ -2,7 +2,7 @@
 FROM alpine:3.20
 
 # Install required packages
-RUN apk add --no-cache bash curl fortune cowsay netcat-openbsd
+RUN apk add --no-cache bash curl fortune cowsay --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/ netcat-openbsd
 
 # Set working directory
 WORKDIR /app
