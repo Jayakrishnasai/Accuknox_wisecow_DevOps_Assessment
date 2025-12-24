@@ -1,0 +1,58 @@
+apiVersion: security.kubearmor.com/v1
+kind: KubeArmorPolicy
+metadata:
+  name: wisecow-zero-trust
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: wisecow
+  action: Block
+  file:
+    matchPaths:
+    - path: /app/
+      readOnly: true
+      action: Allow
+    - path: /tmp/
+      action: Allow
+    - path: /etc/passwd
+      action: Block
+    - path: /etc/shadow
+      action: Block
+    matchDirectories:
+    - dir: /etc/
+      readOnly: true
+      action: Block
+  process:
+    matchPaths:
+    - path: /app/wisecow.sh
+      action: Allow
+    - path: /bin/bash
+      action: Allow
+    - path: /usr/bin/fortune
+      action: Allow
+    - path: /usr/bin/cowsay
+      action: Allow
+    - path: /bin/nc
+      action: Allow
+    - path: /usr/bin/nc
+      action: Allow
+    matchDirectories:
+    - dir: /tmp/
+      action: Block
+      recursive: true
+  network:
+    matchProtocols:
+    - protocol: tcp
+      fromSource:
+      - path: /bin/nc
+      - path: /usr/bin/nc
+      action: Allow
+    - protocol: raw
+      action: Block
+  capabilities:
+    matchCapabilities:
+    - capability: CAP_SYS_ADMIN
+      action: Block
+    - capability: CAP_NET_BIND_SERVICE
+      action: Allow

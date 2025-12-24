@@ -1,0 +1,69 @@
+name: CI/CD Pipeline for Wisecow
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Problem_Statement_1
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/wisecow:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/wisecow:cache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/wisecow:cache,mode=max
+
+  deploy-to-kind:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Kind cluster
+        uses: helm/kind-action@v1.5.0
+        with:
+          version: v0.22.0
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Deploy manifests
+        run: |
+          kubectl apply -f ./Problem_Statement_1/deployment.yaml
+          kubectl apply -f ./Problem_Statement_1/service.yaml
+          kubectl apply -f ./Problem_Statement_1/ingress.yaml
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/wisecow-deployment --timeout=60s
+
+      - name: Test endpoint (HTTPS)
+        run: |
+          # Wait for ingress to be ready
+          sleep 10
+          curl -k https://wisecow.local || exit 1
