@@ -26,14 +26,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set lower case owner name
+        run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./Problem_Statement_1
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/wisecow:latest
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/wisecow:cache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/wisecow:cache,mode=max
+          tags: ghcr.io/${{ env.OWNER_LC }}/wisecow:latest
+          cache-from: type=registry,ref=ghcr.io/${{ env.OWNER_LC }}/wisecow:cache
+          cache-to: type=registry,ref=ghcr.io/${{ env.OWNER_LC }}/wisecow:cache,mode=max
 
   deploy-to-kind:
     needs: build-and-push
@@ -69,7 +73,8 @@ jobs:
 
       - name: Update Deployment Image
         run: |
-          sed -i "s|image: ghcr.io/nyrahul/wisecow:latest|image: ghcr.io/${{ github.repository_owner }}/wisecow:latest|g" ./Problem_Statement_1/deployment.yaml
+          OWNER_LC=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          sed -i "s|image: ghcr.io/nyrahul/wisecow:latest|image: ghcr.io/${OWNER_LC}/wisecow:latest|g" ./Problem_Statement_1/deployment.yaml
 
       - name: Deploy manifests
         run: |
