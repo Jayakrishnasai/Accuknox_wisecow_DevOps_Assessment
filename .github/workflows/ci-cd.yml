@@ -47,16 +47,39 @@ jobs:
         with:
           version: v0.22.0
 
+      - name: Install Nginx Ingress Controller
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=90s
+
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: v1.30.0
+
+      - name: Create TLS Secret
+        run: |
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout tls.key -out tls.crt \
+            -subj "/CN=wisecow.local/O=wisecow"
+          kubectl create secret tls wisecow-tls-secret --key tls.key --cert tls.crt
+
+      - name: Update Deployment Image
+        run: |
+          sed -i "s|image: ghcr.io/nyrahul/wisecow:latest|image: ghcr.io/${{ github.repository_owner }}/wisecow:latest|g" ./Problem_Statement_1/deployment.yaml
 
       - name: Deploy manifests
         run: |
           kubectl apply -f ./Problem_Statement_1/deployment.yaml
           kubectl apply -f ./Problem_Statement_1/service.yaml
           kubectl apply -f ./Problem_Statement_1/ingress.yaml
+
+      - name: Update /etc/hosts
+        run: |
+          echo "127.0.0.1 wisecow.local" | sudo tee -a /etc/hosts
 
       - name: Verify rollout
         run: |
@@ -65,5 +88,5 @@ jobs:
       - name: Test endpoint (HTTPS)
         run: |
           # Wait for ingress to be ready
-          sleep 10
+          sleep 30
           curl -k https://wisecow.local || exit 1
